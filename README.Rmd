@@ -21,6 +21,26 @@ list.files("data")
 ```
 
 
+1. Introduction
+
+The Grammy Awards are one of the most visible long-running signals of recognition in popular music and related genres.
+This report explores how recognition patterns change over time (1965–2024) by comparing trends in nominations and (where available) wins, identifying repeat-recognized artists, and examining how the category landscape evolves across decades.
+
+Roadmap:
+
+describe the dataset and key variables,
+
+explore major temporal patterns (growth, shifts, and “era” effects),
+
+stress-test surprising patterns with sanity checks,
+
+summarize takeaways and propose follow-up extensions.
+
+
+2. Data
+This report expects a CSV inside a data/ folder 
+
+
 ```{r}
 # Prefer: data/grammy.csv (but the code will pick the first CSV it finds in data/)
 
@@ -37,6 +57,10 @@ if (length(csv_files) == 0) {
 raw <- readr::read_csv(csv_files[1], show_col_types = FALSE)
 
 ```
+
+
+2.2 Variable discovery
+Because Kaggle datasets sometimes use slightly different column names, this block tries to automatically map the key fields we need (year, category, nominee/artist, and winner flag if present).
 
 
 ```{r}
@@ -57,6 +81,8 @@ winner   = pick("winner|win")   # may be NA if the dataset encodes wins differen
 
 cols
 ```
+
+2.3 Cleaned analysis table (standaerdized fields)
 
 ```{r}
 df <- raw %>%
@@ -80,6 +106,10 @@ arrange(year)
 glimpse(df)
 ```
 
+3. Main 
+
+
+3.1 The big picture: activity over time (nominations/entries per year)
 
 ```{r}
 df %>%
@@ -93,6 +123,9 @@ x = "Year", y = "Count (nominations/entries)",
 caption = "Interpretation: growth can reflect more categories, more nominees per category, or both."
 )
 ```
+
+
+3.2 Repeat recognition: who appears most often (nominations vs wins)
 
 
 ```{r}
@@ -112,6 +145,10 @@ knitr::kable(top_noms, caption = "Top 10 most frequently appearing nominees (nom
 ```{r}
 knitr::kable(top_wins, caption = "Top 10 most frequently winning nominees (where a winner flag is available).")
 ```
+
+
+3.3 Category structure: which awards dominate, and when do categories change?
+
 
 ```{r}
 cat_counts <- df %>%
@@ -136,6 +173,14 @@ caption = "A rise in unique categories can indicate formalization of new styles/
 )
 ```
 
+
+4. Main — Skepticism (checking unintuitive patterns + alternative explanations)
+
+
+4.1 Data-quality checks (do the implied rules actually hold?)
+
+
+
 ```{r}
 sanity <- df %>%
 group_by(year, category) %>%
@@ -155,6 +200,10 @@ total_rows = nrow(df),
 suspect_year_category = nrow(suspects)
 )
 ```
+
+
+4.2 Re-checking conclusions under alternative views (nominations-only vs wins-only)
+
 
 ```{r}
 # If winner info is missing, this section still documents what is (and isn't) measurable.
@@ -177,6 +226,29 @@ caption = "Comparing the two views helps separate growth in nominations from gro
 ```
 
 
+5. Organization (what we found, in the best order)
+
+This section summarizes the strongest findings (rather than every pattern observed) and ties them back to the original question: how recognition patterns evolve from 1965 to 2024.
+
+Temporal shape: (insert your key pattern: steady growth / step changes / era shifts)
+
+Concentration of recognition: (insert whether few nominees dominate or recognition is distributed)
+
+Category evolution: (insert whether category count rises and what that likely signals)
+
+6. Tables and charts (how to read them)
+
+Key visual design decisions used across the report: consistent minimal theme, labeled axes, and captions that state the interpretation and the main caveat (e.g., “growth may reflect rule changes rather than purely more music”).
+
+7. Conclusions (what we learned + next questions)
+
+Main takeaway: (write 3–5 sentences connecting the strongest empirical patterns to the broader story of the Grammys).
+Limitations: (e.g., winner field availability, category redefinitions, missing metadata like genre/subgenre or artist demographics).
+Future work: (e.g., link to external data like charts/streaming, run change-point detection on era transitions, model category lifecycles).
+
+8. Reproducibility (so anyone can rerun this end-to-end)
+
+
 ```{r}
 required <- c("tidyverse", "janitor")
 missing <- setdiff(required, rownames(installed.packages()))
@@ -193,4 +265,6 @@ if (length(missing) > 0) {
 sessionInfo()
 
 ```
+
+
 
