@@ -1,5 +1,196 @@
 ---
-title: "README"
+title: "Trends and Patterns among Grammy Award Winners (1965–2024)"
+author: Deesha and Arina
 output: html_document
 ---
+
+```{r}
+knitr::opts_chunk$set(
+echo = FALSE, message = FALSE, warning = FALSE,
+fig.align = "center", fig.retina = 2
+)
+
+library(tidyverse)
+library(janitor)
+set.seed(2025)
+```
+
+
+```{r}
+list.files("data")
+```
+
+
+```{r}
+# Prefer: data/grammy.csv (but the code will pick the first CSV it finds in data/)
+
+data_dir <- "data"
+csv_files <- list.files(data_dir, pattern = "\\.csv$", full.names = TRUE)
+
+if (length(csv_files) == 0) {
+  stop(
+    "No CSV found in ./data. Please add your Grammy dataset CSV to the data/ folder ",
+    "and re-knit (e.g., data/grammy.csv)."
+  )
+}
+
+raw <- readr::read_csv(csv_files[1], show_col_types = FALSE)
+
+```
+
+
+```{r}
+col <- names(raw)
+
+pick <- function(pattern) {
+match <- col[str_detect(col, regex(pattern, ignore_case = TRUE))]
+if (length(match) == 0) return(NA_character_)
+match[1]
+}
+
+cols <- list(
+year     = pick("year"),
+category = pick("category"),
+nominee  = pick("nominee|artist|performer|group"),
+winner   = pick("winner|win")   # may be NA if the dataset encodes wins differently
+)
+
+cols
+```
+
+```{r}
+df <- raw %>%
+mutate(
+year = if (!is.na(cols$year)) as.integer(.data[[cols$year]]) else NA_integer_,
+category = if (!is.na(cols$category)) as.character(.data[[cols$category]]) else NA_character_,
+nominee = if (!is.na(cols$nominee)) as.character(.data[[cols$nominee]]) else NA_character_,
+winner_raw = if (!is.na(cols$winner)) as.character(.data[[cols$winner]]) else NA_character_
+) %>%
+mutate(
+winner = case_when(
+is.na(winner_raw) ~ NA,
+str_to_lower(winner_raw) %in% c("yes","y","true","t","1","winner") ~ TRUE,
+str_to_lower(winner_raw) %in% c("no","n","false","f","0") ~ FALSE,
+TRUE ~ NA
+)
+) %>%
+filter(!is.na(year)) %>%
+arrange(year)
+
+glimpse(df)
+```
+
+
+```{r}
+df %>%
+count(year, name = "entries") %>%
+ggplot(aes(year, entries)) +
+geom_line() +
+geom_point(size = 1) +
+labs(
+title = "Grammy dataset activity over time (1965–2024)",
+x = "Year", y = "Count (nominations/entries)",
+caption = "Interpretation: growth can reflect more categories, more nominees per category, or both."
+)
+```
+
+
+```{r}
+top_noms <- df %>%
+count(nominee, sort = TRUE) %>%
+slice_max(n, n = 10)
+
+top_wins <- df %>%
+filter(!is.na(winner) & winner) %>%
+count(nominee, sort = TRUE) %>%
+slice_max(n, n = 10)
+
+knitr::kable(top_noms, caption = "Top 10 most frequently appearing nominees (nominations/entries).")
+```
+
+
+```{r}
+knitr::kable(top_wins, caption = "Top 10 most frequently winning nominees (where a winner flag is available).")
+```
+
+```{r}
+cat_counts <- df %>%
+count(category, sort = TRUE) %>%
+slice_max(n, n = 12)
+
+knitr::kable(cat_counts, caption = "Most common categories in the dataset (top 12).")
+```
+
+
+```{r}
+df %>%
+mutate(decade = 10 * (year %/% 10)) %>%
+distinct(decade, category) %>%
+count(decade, name = "unique_categories") %>%
+ggplot(aes(decade, unique_categories)) +
+geom_col() +
+labs(
+title = "Category diversity by decade (unique categories per decade)",
+x = "Decade", y = "Unique categories",
+caption = "A rise in unique categories can indicate formalization of new styles/segments or changing award structure."
+)
+```
+
+```{r}
+sanity <- df %>%
+group_by(year, category) %>%
+summarise(
+entries = n(),
+winners_reported = sum(if_else(winner == TRUE, 1L, 0L), na.rm = TRUE),
+.groups = "drop"
+)
+
+# Flag potentially inconsistent combinations (e.g., many winners for one year-category)
+
+suspects <- sanity %>% filter(winners_reported > 1)
+
+list(
+year_range = range(df$year, na.rm = TRUE),
+total_rows = nrow(df),
+suspect_year_category = nrow(suspects)
+)
+```
+
+```{r}
+# If winner info is missing, this section still documents what is (and isn't) measurable.
+
+if (all(is.na(df$winner))) {
+cat("Winner information is not reliably available in the detected columns; conclusions focus on nominations/entries trends.")
+} else {
+view_win <- df %>% filter(winner == TRUE) %>% count(year, name = "wins")
+view_nom <- df %>% count(year, name = "nominations")
+
+ggplot() +
+geom_line(data = view_nom, aes(year, nominations), alpha = 0.9) +
+geom_line(data = view_win, aes(year, wins), alpha = 0.9) +
+labs(
+title = "Nominations vs. Wins over time (when winner flag is available)",
+x = "Year", y = "Count",
+caption = "Comparing the two views helps separate growth in nominations from growth in wins."
+)
+}
+```
+
+
+```{r}
+required <- c("tidyverse", "janitor")
+missing <- setdiff(required, rownames(installed.packages()))
+
+if (length(missing) > 0) {
+  cat(
+    "Missing packages:", paste(missing, collapse = ", "), "\n",
+    "Install them before knitting (e.g., install.packages(\"<pkg>\"))."
+  )
+} else {
+  cat("All required packages installed.\n")
+}
+
+sessionInfo()
+
+```
 
