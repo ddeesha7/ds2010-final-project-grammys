@@ -1,7 +1,7 @@
 ---
 title: "Trends and Patterns among Grammy Award Winners (1965–2024)"
 author: Deesha and Arina
-output: html_document
+output: github_document
 ---
 
 ```{r}
