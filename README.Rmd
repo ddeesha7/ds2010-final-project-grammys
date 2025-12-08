@@ -42,7 +42,6 @@ This report expects a CSV inside a data/ folder
 
 
 ```{r}
-# Prefer: data/grammy.csv (but the code will pick the first CSV it finds in data/)
 
 data_dir <- "data"
 csv_files <- list.files(data_dir, pattern = "\\.csv$", full.names = TRUE)
@@ -133,7 +132,7 @@ caption = "Interpretation: growth can reflect more categories, more nominees per
 
 ```{r}
 top_noms <- df %>%
-filter(!is.na(nominee) & nominee != "") %>% # <-- remove missing names
+filter(!is.na(nominee) & nominee != "") %>%
 count(nominee, sort = TRUE) %>%
 slice_max(n, n = 10)
 
@@ -196,7 +195,7 @@ ggplot(cat_counts, aes(x = reorder(category, n), y = n)) +
 ```{r}
 df %>%
   mutate(decade = 10 * (year %/% 10)) %>%
-  distinct(decade, award) %>%              # <-- FIX: unique award types, not rows
+  distinct(decade, award) %>%              
   count(decade, name = "unique_award_types") %>% 
   ggplot(aes(decade, unique_award_types)) +
   geom_col() +
