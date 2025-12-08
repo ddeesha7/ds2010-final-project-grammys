@@ -89,7 +89,6 @@ df <- raw %>%
   mutate(
     year = if (!is.na(cols$year)) as.integer(.data[[cols$year]]) else NA_integer_,
 
-    # FIXED: use the real award column as the category
     category = as.character(.data[["award"]]),
 
     nominee = if (!is.na(cols$nominee)) as.character(.data[[cols$nominee]]) else NA_character_,
