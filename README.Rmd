@@ -86,30 +86,34 @@ cols
 
 ```{r}
 df <- raw %>%
-mutate(
-year = if (!is.na(cols$year)) as.integer(.data[[cols$year]]) else NA_integer_,
-category = if (!is.na(cols$category)) as.character(.data[[cols$category]]) else NA_character_,
-nominee = if (!is.na(cols$nominee)) as.character(.data[[cols$nominee]]) else NA_character_,
-winner_raw = if (!is.na(cols$winner)) as.character(.data[[cols$winner]]) else NA_character_
-) %>%
-mutate(
-winner = case_when(
-is.na(winner_raw) ~ NA,
-str_to_lower(winner_raw) %in% c("yes","y","true","t","1","winner") ~ TRUE,
-str_to_lower(winner_raw) %in% c("no","n","false","f","0") ~ FALSE,
-TRUE ~ NA
-)
-) %>%
-filter(!is.na(year)) %>%
-arrange(year)
+  mutate(
+    year = if (!is.na(cols$year)) as.integer(.data[[cols$year]]) else NA_integer_,
+
+    # FIXED: use the real award column as the category
+    category = as.character(.data[["award"]]),
+
+    nominee = if (!is.na(cols$nominee)) as.character(.data[[cols$nominee]]) else NA_character_,
+    winner_raw = if (!is.na(cols$winner)) as.character(.data[[cols$winner]]) else NA_character_
+  ) %>%
+  mutate(
+    winner = case_when(
+      is.na(winner_raw) ~ NA,
+      str_to_lower(winner_raw) %in% c("yes","y","true","t","1","winner") ~ TRUE,
+      str_to_lower(winner_raw) %in% c("no","n","false","f","0") ~ FALSE,
+      TRUE ~ NA
+    )
+  ) %>%
+  filter(!is.na(year)) %>%
+  arrange(year)
 
 glimpse(df)
+
 ```
 
 3. Main 
 
 
-3.1 The big picture: activity over time (nominations/entries per year)
+3.1 Question 1: How has overall Grammy activity changed over time?
 
 ```{r}
 df %>%
@@ -125,16 +129,17 @@ caption = "Interpretation: growth can reflect more categories, more nominees per
 ```
 
 
-3.2 Repeat recognition: who appears most often (nominations vs wins)
+3.2 Question 2: Who are the most frequently recognized artists?
 
 
 ```{r}
 top_noms <- df %>%
+filter(!is.na(nominee) & nominee != "") %>% # <-- remove missing names
 count(nominee, sort = TRUE) %>%
 slice_max(n, n = 10)
 
 top_wins <- df %>%
-filter(!is.na(winner) & winner) %>%
+filter(!is.na(nominee) & nominee != "", !is.na(winner) & winner) %>%
 count(nominee, sort = TRUE) %>%
 slice_max(n, n = 10)
 
@@ -146,31 +151,63 @@ knitr::kable(top_noms, caption = "Top 10 most frequently appearing nominees (nom
 knitr::kable(top_wins, caption = "Top 10 most frequently winning nominees (where a winner flag is available).")
 ```
 
+```{r}
+ggplot(top_noms, aes(x = reorder(nominee, n), y = n)) +
+geom_col() +
+coord_flip() +
+labs(
+title = "Top 10 most frequently nominated artists",
+x = "Artist / nominee",
+y = "Number of nominations"
+)
 
-3.3 Category structure: which awards dominate, and when do categories change?
+```
+
+
+3.3 Question 3: Which Grammy categories dominate overall?
 
 
 ```{r}
 cat_counts <- df %>%
-count(category, sort = TRUE) %>%
-slice_max(n, n = 12)
+  filter(!is.na(category) & category != "") %>%
+  count(category, sort = TRUE) %>%
+  slice_max(n, n = 12)
 
-knitr::kable(cat_counts, caption = "Most common categories in the dataset (top 12).")
+knitr::kable(
+  cat_counts,
+  caption = "Most common Grammy categories in the dataset (top 12)."
+)
+
 ```
 
 
 ```{r}
+ggplot(cat_counts, aes(x = reorder(category, n), y = n)) +
+  geom_col() +
+  coord_flip() +
+  labs(
+    title = "Most common Grammy categories (top 12)",
+    x = "Category",
+    y = "Number of entries"
+  )
+```
+
+3.4 Question 4: How does category diversity change by decade?
+
+```{r}
 df %>%
-mutate(decade = 10 * (year %/% 10)) %>%
-distinct(decade, category) %>%
-count(decade, name = "unique_categories") %>%
-ggplot(aes(decade, unique_categories)) +
-geom_col() +
-labs(
-title = "Category diversity by decade (unique categories per decade)",
-x = "Decade", y = "Unique categories",
-caption = "A rise in unique categories can indicate formalization of new styles/segments or changing award structure."
-)
+  mutate(decade = 10 * (year %/% 10)) %>%
+  distinct(decade, award) %>%              # <-- FIX: unique award types, not rows
+  count(decade, name = "unique_award_types") %>% 
+  ggplot(aes(decade, unique_award_types)) +
+  geom_col() +
+  labs(
+    title = "Category diversity by decade (unique award types)",
+    x = "Decade",
+    y = "Number of unique award categories",
+    caption = "Counts reflect how many different award types existed in each decade."
+  )
+
 ```
 
 
@@ -228,13 +265,20 @@ caption = "Comparing the two views helps separate growth in nominations from gro
 
 5. Organization (what we found, in the best order)
 
-This section summarizes the strongest findings (rather than every pattern observed) and ties them back to the original question: how recognition patterns evolve from 1965 to 2024.
+Across our four questions, we see a clear story about how the Grammys have
+grown and changed. First, the number of entries per year has generally
+increased over time, with especially fast growth after the 1980s, suggesting
+both more categories and more nominees per category. Second, recognition is
+somewhat concentrated: a small group of artists such as Willie Nelson and
+Barbra Streisand accumulate many nominations, although newer artists like
+Taylor Swift and Beyoncé also appear near the top.
 
-Temporal shape: (insert your key pattern: steady growth / step changes / era shifts)
-
-Concentration of recognition: (insert whether few nominees dominate or recognition is distributed)
-
-Category evolution: (insert whether category count rises and what that likely signals)
+On the category side, Song of the Year, Record of the Year, and Album of the
+Year are among the most common award categories, but there is also a long tail
+of specialized awards. The number of distinct award types per decade rises
+from the early years to the 2010s, reflecting how the Grammys added new genres
+and more specific categories. The dip in the 2020s is partly because we only
+observe part of that decade so far.
 
 6. Tables and charts (how to read them)
 
@@ -242,9 +286,20 @@ Key visual design decisions used across the report: consistent minimal theme, la
 
 7. Conclusions (what we learned + next questions)
 
-Main takeaway: (write 3–5 sentences connecting the strongest empirical patterns to the broader story of the Grammys).
-Limitations: (e.g., winner field availability, category redefinitions, missing metadata like genre/subgenre or artist demographics).
-Future work: (e.g., link to external data like charts/streaming, run change-point detection on era transitions, model category lifecycles).
+Overall, our analysis suggests that the Grammys have become larger and more
+complex over time. The total volume of entries has grown, and the award
+structure has expanded from a relatively small set of categories to hundreds
+of distinct award types in recent decades. At the same time, recognition is
+not evenly distributed: a small group of artists receive many nominations, and
+some repeatedly appear among the top nominees and winners.
+
+Our dataset has limitations. Winner information is incomplete in some rows,
+category names sometimes change over time, and we do not observe details such
+as genre tags or artist demographics. Future work could link this dataset to
+external information like Billboard charts or streaming data to compare
+industry recognition with commercial popularity, or to study how long new
+categories survive once they are introduced.
+
 
 8. Reproducibility (so anyone can rerun this end-to-end)
 
